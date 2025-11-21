@@ -1,0 +1,115 @@
+{{ header }}{{ column_left }}
+<div id="content">
+  <div class="page-header">
+    <div class="container-fluid">
+      <div class="pull-right">
+        <button type="submit" form="form-xml-import" data-toggle="tooltip" title="{{ button_save }}" class="btn btn-primary"><i class="fa fa-save"></i></button>
+        <a href="{{ cancel }}" data-toggle="tooltip" title="{{ button_cancel }}" class="btn btn-default"><i class="fa fa-reply"></i></a>
+      </div>
+      <h1>{{ heading_title }}</h1>
+      <ul class="breadcrumb">
+        {% for breadcrumb in breadcrumbs %}
+          <li><a href="{{ breadcrumb.href }}">{{ breadcrumb.text }}</a></li>
+        {% endfor %}
+      </ul>
+    </div>
+  </div>
+
+  <div class="container-fluid">
+
+    {% if error_warning %}
+      <div class="alert alert-danger"><i class="fa fa-exclamation-circle"></i> {{ error_warning }}
+        <button type="button" class="close" data-dismiss="alert">&times;</button>
+      </div>
+    {% endif %}
+
+    {% if success %}
+      <div class="alert alert-success"><i class="fa fa-check-circle"></i> {{ success }}
+        <button type="button" class="close" data-dismiss="alert">&times;</button>
+      </div>
+    {% endif %}
+
+    <div class="panel panel-default">
+      <div class="panel-heading">
+        <h3 class="panel-title"><i class="fa fa-cog"></i> {{ text_edit }}</h3>
+      </div>
+      <div class="panel-body">
+
+        <form action="{{ action }}" method="post" enctype="multipart/form-data" id="form-xml-import" class="form-horizontal">
+
+          <div class="form-group">
+            <label class="col-sm-2 control-label" for="input-status">{{ entry_status }}</label>
+            <div class="col-sm-10">
+              <select name="module_xml_import_status" id="input-status" class="form-control">
+                {% if module_xml_import_status %}
+                  <option value="1" selected="selected">{{ text_enabled }}</option>
+                  <option value="0">{{ text_disabled }}</option>
+                {% else %}
+                  <option value="1">{{ text_enabled }}</option>
+                  <option value="0" selected="selected">{{ text_disabled }}</option>
+                {% endif %}
+              </select>
+            </div>
+          </div>
+
+          <div class="form-group{% if error_xml_url %} has-error{% endif %}">
+            <label class="col-sm-2 control-label" for="input-xml-url">{{ entry_xml_url }}</label>
+            <div class="col-sm-10">
+              <input type="text" name="module_xml_import_url" value="{{ module_xml_import_url }}" placeholder="https://..." id="input-xml-url" class="form-control" />
+              {% if error_xml_url %}
+                <div class="text-danger">{{ error_xml_url }}</div>
+              {% endif %}
+              <p class="help-block">{{ help_xml_url }}</p>
+            </div>
+          </div>
+
+          <div class="form-group">
+            <label class="col-sm-2 control-label" for="input-currency">{{ entry_currency }}</label>
+            <div class="col-sm-10">
+              <select name="module_xml_import_currency" id="input-currency" class="form-control">
+                {% for c in currencies %}
+                  {% if c.code == module_xml_import_currency %}
+                    <option value="{{ c.code }}" selected="selected">{{ c.name }}</option>
+                  {% else %}
+                    <option value="{{ c.code }}">{{ c.name }}</option>
+                  {% endif %}
+                {% endfor %}
+              </select>
+              <p class="help-block">{{ help_currency }}</p>
+            </div>
+          </div>
+
+        </form>
+
+      </div>
+    </div>
+
+    <div class="panel panel-info">
+      <div class="panel-heading">
+        <h3 class="panel-title"><i class="fa fa-clock-o"></i> {{ entry_cron_url }}</h3>
+      </div>
+      <div class="panel-body">
+        <p>{{ help_cron_url }}</p>
+        <div class="form-group">
+          <div class="col-sm-12">
+            <input type="text" class="form-control" value="{{ cron_url }}" readonly onclick="this.select();" />
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="panel panel-success">
+      <div class="panel-heading">
+        <h3 class="panel-title"><i class="fa fa-play"></i> {{ entry_run_now }}</h3>
+      </div>
+      <div class="panel-body">
+        <p>Bu butona bastığınızda XML import işlemi anlık olarak çalıştırılır.</p>
+        <a href="{{ run_now_url }}" target="_blank" class="btn btn-success">
+          <i class="fa fa-refresh"></i> {{ button_run_now }}
+        </a>
+      </div>
+    </div>
+
+  </div>
+</div>
+{{ footer }}
