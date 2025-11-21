@@ -1,144 +1,99 @@
-🛒 OpenCart – Advanced XML Product Importer
+# 🛒 OpenCart – Gelişmiş XML Ürün İçe Aktarma
 
-(Cron + TCMB Currency API + Multi-Image Support)
+(Cron + TCMB Döviz API'si + Çoklu Görsel Desteği)
 
-Bu repo, OpenCart 3.x için geliştirilmiş profesyonel, stabil ve yüksek performanslı bir
-XML Ürün Entegrasyon Modülüdür.
+Kısa: OpenCart 3.x için tasarlanmış, XML kaynaklı ürünleri çeken, döviz dönüşümü yapan, çoklu görselleri işleyen ve ürünleri güncelleyen stabil bir modül.
 
-Modül; XML kaynaklı ürünleri otomatik olarak çekmek, fiyatları TCMB döviz kuruna göre çevirmek, çoklu görselleri indirmek ve ürünleri otomatik güncellemek için tasarlanmıştır.
+---
 
-🚀 Özellikler
-✔ XML’den otomatik ürün çekme
+## 🚀 Öne Çıkan Özellikler
+- Otomatik XML çekme ve eksik alan kontrolü  
+- SKU bazlı güncelleme veya yeni ürün ekleme  
+- TCMB tabanlı döviz dönüşümü (USD / EUR -> TL)  
+- Dövizli fiyatlarda otomatik %10 kar marjı  
+- Nokta / virgül format dönüşümleri  
+- resim0…resim10 alanlarından çoklu görsel indirme ve product_image ekleme  
+- Ayrıntılı loglama (günlük dosyaları + ana log)  
+- 7 günden eski logların otomatik temizlenmesi  
+- Cron ile tam otomasyon
 
-Ürünleri XML kaynağından alır
+---
 
-Eksik / boş XML kontrolü yapar
+## ⚙️ Hızlı Kurulum
+1. Dosyaları OpenCart kök dizinine aynı klasör yapısıyla kopyalayın.  
+2. Admin → Ek Modüller → "XML Import" modülünü aktif edin.  
+3. XML URL’ini girin.  
+4. Sunucunuza cron ekleyin:
 
-SKU’ya göre günceller veya yeni ürün ekler
+```bash
+# crontab örneği (günlük)
+0 2 * * * wget -q -O - "https://site.com/index.php?route=extension/module/xml_import/cron"
+```
 
-✔ TCMB Döviz Kuru Entegrasyonu
+---
 
-XML’de fiyat cinsi okunur (USD / EUR / TL)
+## 🔧 Dosya Yapısı (kod olarak görünmesi için)
+- `system/library/xml_import.php` — XML indirme, loglama  
+- `catalog/model/extension/module/xml_import.php` — Ürün işleme mantığı  
+- `catalog/controller/extension/module/xml_import.php` — Cron / manuel tetikleme  
+- `storage/xml/` — İndirilen XML dosyaları  
+- `storage/logs/` — Log dosyaları  
+- `image/catalog/xml_import/` — İndirilen ürün görselleri  
+- `api/tcmb/` — Yerel TCMB döviz API'si
 
-TL dışındaki fiyatlar senin sunucunda çalışan TCMB API ile anlık kurdan çevrilir
+Örnek dosya yolu kod bloğu:
+```text
+c:\inetpub\wwwroot\your-opencart\
+|- system\library\xml_import.php
+|- catalog\model\extension\module\xml_import.php
+...
+```
 
-Çevrilen fiyatlara otomatik %10 kar eklenir
+---
 
-TL fiyatlar doğrudan işlenir
+## ⚠️ ÖNEMLİ: TCMB API Linkini Düzenleyin
+Modül, döviz dönüşümü için kendi sunucunuzdaki TCMB API'sini kullanır. Aşağıdaki satırı mutlaka kendi alan adınıza göre güncelleyin:
 
-Nokta–virgül dönüşümleri otomatik yapılır
-
-✔ Çoklu Görsel Desteği
-
-XML içinde bulunan:
-
-resim0, resim1, … resim10
-
-
-alanlarının tamamını tarar ve indirir → product_image tablosuna ekler.
-
-✔ Akıllı Loglama Sistemi
-
-İşlemler storage/logs/xml_import.log dosyasına yazılır
-
-Her import işleminde günlük (xml_import_YYYY-MM-DD.txt) logs tutulur
-
-7 günden eski loglar otomatik temizlenir
-
-Her importtan önce ana log sıfırlanır
-
-✔ Cron ile Tam Otomasyon
-
-Modül 24 saatte bir otomatik ürün güncellemeye uygundur.
-
-Cron URL:
-
-https://site.com/index.php?route=extension/module/xml_import/cron
-
-⚠ ÖNEMLİ — TCMB API Linkinin Düzenlenmesi
-
-Modül, döviz dönüşümü için senin kendi sunucunda çalışan TCMB API’sini kullanır.
-
-Bu linki mutlaka kendi alan adınla değiştirmelisin:
-
-https://seninsiten.com/api/tcmb/index.php?doviz=USD
-
-
-Kodlarda şu satır bulunur:
-
+```php
 $url = "https://seninsiten.com/api/tcmb/index.php?doviz=" . urlencode($currency);
+```
 
+Alan adını değiştirmezseniz döviz dönüşümü çalışmaz.
 
-👉 Eğer buradaki alan adını değiştirmezsen döviz kuru çalışmaz
-👉 API tamamen lokal sunucunda barınır, dış API bağımlılığı yoktur
-👉 Bu sistem fiyat hesaplamasını %100 stabil hale getirir
+---
 
-📂 Dosya Yapısı
-/system/library/xml_import.php       → XML indirme + log sistemi
-/catalog/model/extension/module/xml_import.php → Ürün işleme
-/catalog/controller/extension/module/xml_import.php → Cron / manuel çalıştırma
-/storage/xml/                        → XML dosyalarının indirildiği klasör
-/storage/logs/                       → Log dosyaları
-/image/catalog/xml_import/           → İndirilen ürün görselleri
-/api/tcmb/                           → Senin kurduğun TCMB döviz API’si
+## 🔄 İşleyiş Özeti (adım adım)
+1. Cron tetiklenir  
+2. Ana log ve günlük log başlatılır  
+3. XML cURL ile indirilir ve kaydedilir  
+4. Fiyat cinsi kontrol edilir (USD / EUR / TL)  
+5. USD/EUR ise TCMB kuru ile çarpılır ve %10 kar eklenir  
+6. Görseller indirilir, `image/catalog/xml_import/` içine kaydedilir ve `product_image` tablosuna eklenir  
+7. SKU kontrolü → ürün güncelle veya yeni ekle  
+8. İşlem raporu / log saklanır
 
-🔧 Kurulum
-1) Dosyaları aynı yapıyla OpenCart dizinine yükle
-2) Admin → Ek Modüller → “XML Import” modülünü aktif edin
-3) XML URL’ini girin
-4) Cron ayarlarını ekleyin
-0 */24 * * * wget -q -O - "https://site.com/index.php?route=extension/module/xml_import/cron"
+---
 
-🔄 Çalışma Mantığı
+## 🛠️ İleri Seçenekler (isteğe bağlı)
+- Kategori eşleştirme ve otomatik kategori oluşturma  
+- Marka bazlı filtreleme  
+- Stoksuz ürünleri otomatik pasif etme  
+- Çoklu XML kaynağı desteği  
+- Fiyat yuvarlama kuralları ve marka komisyonları
 
-Cron tetiklenir
+---
 
-Ana log sıfırlanır
+## 📝 Hata / Bakım & İpucu
+- Loglar: `storage/logs/` ve günlük dosyalar — hataları buradan takip edin.  
+- Görsel izinleri: `image/catalog/xml_import/` klasörünün yazılabilir olduğundan emin olun.  
+- XML formatı değişirse eşlemeleri güncelleyin.  
+- Gelişmiş hata takibi istiyorsanız `storage/logs/xml_import.log` dosyasını izleyin.
 
-XML cURL ile indirilir
+---
 
-Fiyat cinsi kontrol edilir
+## 📮 İletişim / Geliştirme Talepleri
+Yeni özellik talepleri veya entegrasyon istekleri için repo üzerinden issue açabilirsiniz.
 
-USD/EUR → TCMB kuru ile çarpılır
+--- 
 
-TL → doğrudan fiyat
-
-Tüm fiyatlara %10 eklenir
-
-Görseller indirilir
-
-Ürün var mı kontrol edilir
-
-Güncelleme veya ekleme yapılır
-
-Loglara yazılır
-
-🎯 Proje Felsefesi
-
-Bu modül şunları hedefler:
-
-%100 otomatik çalışan ürün senkronizasyonu
-
-Stabil ve güvenli döviz dönüşümü
-
-Çoklu görsel destekli yüksek kaliteli ürün import
-
-OpenCart çekirdeğine dokunmadan maksimum uyumluluk
-
-Tamamen geliştirici dostu, modüler yapı
-
-📮 Ek Özellik Talepleri İçin
-
-İstersen şu ek özellikleri de sisteme entegre edebilirim:
-
-Kategori eşleştirme
-
-Markaya göre filtreleme
-
-Stoksuz ürünleri otomatik pasif etme
-
-Çoklu tedarikçi / çoklu XML desteği
-
-Otomatik fiyat yuvarlama
-
-Belirli markalara özel komisyon sistemi
+Teşekkürler — yapılandırmayı doğru yaptığınızdan emin olun.
