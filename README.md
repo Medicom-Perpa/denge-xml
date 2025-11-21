@@ -1,4 +1,4 @@
-# 🛒 OpenCart – Gelişmiş XML Ürün İçe Aktarma
+# 🛒 OpenCart – Gelişmiş Denge XML Ürün İçe Aktarma
 
 (Cron + TCMB Döviz API'si + Çoklu Görsel Desteği)
 
