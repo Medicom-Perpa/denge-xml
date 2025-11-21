@@ -37,6 +37,7 @@
 
         <form action="{{ action }}" method="post" enctype="multipart/form-data" id="form-xml-import" class="form-horizontal">
 
+          <!-- MODÜL DURUMU -->
           <div class="form-group">
             <label class="col-sm-2 control-label" for="input-status">{{ entry_status }}</label>
             <div class="col-sm-10">
@@ -52,6 +53,7 @@
             </div>
           </div>
 
+          <!-- ÜRÜN XML URL -->
           <div class="form-group{% if error_xml_url %} has-error{% endif %}">
             <label class="col-sm-2 control-label" for="input-xml-url">{{ entry_xml_url }}</label>
             <div class="col-sm-10">
@@ -63,6 +65,19 @@
             </div>
           </div>
 
+          <!-- KATEGORİ XML URL (YENİ EKLENDİ) -->
+          <div class="form-group{% if error_category_xml_url %} has-error{% endif %}">
+            <label class="col-sm-2 control-label" for="input-category-xml-url">{{ entry_category_xml_url }}</label>
+            <div class="col-sm-10">
+              <input type="text" name="module_xml_import_category_url" value="{{ module_xml_import_category_url }}" placeholder="https://..." id="input-category-xml-url" class="form-control" />
+              {% if error_category_xml_url %}
+                <div class="text-danger">{{ error_category_xml_url }}</div>
+              {% endif %}
+              <p class="help-block">{{ help_category_xml_url }}</p>
+            </div>
+          </div>
+
+          <!-- DÖVİZ -->
           <div class="form-group">
             <label class="col-sm-2 control-label" for="input-currency">{{ entry_currency }}</label>
             <div class="col-sm-10">
@@ -84,6 +99,7 @@
       </div>
     </div>
 
+    <!-- CRON URL PANELİ -->
     <div class="panel panel-info">
       <div class="panel-heading">
         <h3 class="panel-title"><i class="fa fa-clock-o"></i> {{ entry_cron_url }}</h3>
@@ -98,6 +114,7 @@
       </div>
     </div>
 
+    <!-- ŞİMDİ ÇALIŞTIR PANELİ -->
     <div class="panel panel-success">
       <div class="panel-heading">
         <h3 class="panel-title"><i class="fa fa-play"></i> {{ entry_run_now }}</h3>

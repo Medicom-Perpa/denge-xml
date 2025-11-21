@@ -50,14 +50,11 @@ class ModelExtensionModuleXmlImport extends Model {
 
         $currency = strtoupper(trim($currency));
 
-        // XML'deki TL → TRY
         if ($currency == 'TL' || $currency == 'TRY' || $currency == '') {
             return 1;
         }
 
-        // TCMB API (sende kurulu olan)
         $url = "https://iconsepeti.medicombilgisayar.com/api/tcmb/index.php?doviz=" . urlencode($currency);
-
         $json = @file_get_contents($url);
 
         if (!$json) {
@@ -105,8 +102,11 @@ class ModelExtensionModuleXmlImport extends Model {
             $brand    = trim((string)$p->marka);
             $barcode  = trim((string)$p->barkod);
 
+            // ✔ DOĞRU KATEGORİ KODU
+            $category_code = trim((string)$p->katmannumarsi);
+
             //--------------------------------------
-            // TÜM RESİMLERİ TOPLA (resim0 → resim10)
+            // TÜM RESİMLERİ TOPLA
             //--------------------------------------
             $image_list = [];
 
@@ -129,52 +129,39 @@ class ModelExtensionModuleXmlImport extends Model {
                 }
             }
 
-            // Ana görsel
             $image_main = isset($downloaded_images[0]) ? $downloaded_images[0] : '';
             $image_db   = $this->db->escape($image_main);
 
-
             //---------------------------
-            // FİYAT HESAPLAMA SİSTEMİ
+            // FİYAT HESAPLAMA
             //---------------------------
-
-            // 1) Virgül → nokta düzelt
             $price_raw = str_replace(',', '.', $price_raw);
             $price = (float)$price_raw;
 
-            // 2) Döviz cinsini normalize et
             $currency = strtoupper(trim($currency));
 
-            // 3) TL → direkt
             if ($currency == '' || $currency == 'TL' || $currency == 'TRY') {
                 $price_tl = $price;
-
-            // 4) USD/EUR → döviz kuru ile çarp
             } else {
                 $rate = $this->getRate($currency);
                 $price_tl = $price * $rate;
             }
 
-            // 5) Hepsine %10 ekle
+            // +%10 kar
             $price_tl = $price_tl * 1.10;
-
-            // 6) Number format
             $price_tl = number_format($price_tl, 2, '.', '');
 
-
             //---------------------------
-            // SKU boşsa atla
+            // SKU boşsa işlem yok
             //---------------------------
             if ($sku === "") {
                 $this->xml_import->log("ATLANDI: SKU boş.");
                 continue;
             }
 
-            // Escape
             $sku_db     = $this->db->escape($sku);
             $name_db    = $this->db->escape($name);
             $model_db   = $this->db->escape($model);
-            $brand_db   = $this->db->escape($brand);
             $barcode_db = $this->db->escape($barcode);
 
             //---------------------------
@@ -207,9 +194,6 @@ class ModelExtensionModuleXmlImport extends Model {
                     WHERE product_id = '" . (int)$product_id . "'
                 ");
 
-                //---------------------------
-                // EK GÖRSELLERİ TEMİZLE + EKLE
-                //---------------------------
                 $this->db->query("DELETE FROM " . DB_PREFIX . "product_image WHERE product_id = '" . (int)$product_id . "'");
 
                 if (count($downloaded_images) > 1) {
@@ -223,7 +207,6 @@ class ModelExtensionModuleXmlImport extends Model {
                                 image = '" . $this->db->escape($local_path) . "',
                                 sort_order = '" . (int)$sort . "'
                         ");
-
                         $sort++;
                     }
                 }
@@ -255,9 +238,6 @@ class ModelExtensionModuleXmlImport extends Model {
                         language_id = 1
                 ");
 
-                //---------------------------
-                // EK GÖRSELLERİ EKLE
-                //---------------------------
                 if (count($downloaded_images) > 1) {
                     $sort = 0;
                     foreach ($downloaded_images as $idx => $local_path) {
@@ -269,13 +249,38 @@ class ModelExtensionModuleXmlImport extends Model {
                                 image = '" . $this->db->escape($local_path) . "',
                                 sort_order = '" . (int)$sort . "'
                         ");
-
                         $sort++;
                     }
                 }
 
                 $total_insert++;
                 $this->xml_import->log("EKLENDİ → SKU: {$sku} | TL: {$price_tl}");
+            }
+
+            /**
+             * ------------------------------------------
+             * ÜRÜN → KATEGORİ BAĞLAMA
+             * ------------------------------------------
+             */
+            if ($category_code != "") {
+
+                $category_id = $this->getCategoryIdByDengeCode($category_code);
+
+                if ($category_id) {
+
+                    $this->db->query("DELETE FROM " . DB_PREFIX . "product_to_category WHERE product_id = " . (int)$product_id);
+
+                    $this->db->query("
+                        INSERT INTO " . DB_PREFIX . "product_to_category
+                        SET product_id = '" . (int)$product_id . "',
+                            category_id = '" . (int)$category_id . "'
+                    ");
+
+                    $this->xml_import->log("Kategori bağlandı → Product: {$product_id}, KatKod: {$category_code}, KatID: {$category_id}");
+
+                } else {
+                    $this->xml_import->log("UYARI: Kategori bulunamadı → Kod: {$category_code}, SKU: {$sku}");
+                }
             }
         }
 
@@ -285,4 +290,176 @@ class ModelExtensionModuleXmlImport extends Model {
 
         return true;
     }
+
+
+    /**
+     * KATEGORİ IMPORT
+     */
+    public function importCategories($xmlPath) {
+
+        $this->load->library('xml_import');
+        $this->xml_import->log("Kategori XML işleme başladı: " . $xmlPath);
+
+        if (!file_exists($xmlPath)) {
+            $this->xml_import->log("HATA: Kategori XML dosyası bulunamadı: " . $xmlPath);
+            return false;
+        }
+
+        $xml = simplexml_load_file($xmlPath);
+        if (!$xml) {
+            $this->xml_import->log("HATA: Kategori XML parse edilemedi.");
+            return false;
+        }
+
+        $language_id = (int)$this->config->get('config_language_id');
+
+        $total_parent = 0;
+        $total_child  = 0;
+
+        // ✔ DENGE XML'de <grup> kullanılıyor
+        foreach ($xml->grup as $g) {
+
+            $parent_name = trim((string)$g->grupadi);
+            $parent_code = trim((string)$g->grupkodu);
+
+            $child_name  = trim((string)$g->katman);
+            $child_code  = trim((string)$g->katmannumarsi);
+
+            if (!$parent_name || !$parent_code || !$child_name || !$child_code) {
+                $this->xml_import->log("Uyarı: Eksik kategori satırı atlandı.");
+                continue;
+            }
+
+            // Parent
+            $parent_id = $this->getOrCreateDengeCategory($parent_code, $parent_name, 0, $language_id);
+            $total_parent++;
+
+            // Child
+            $child_id  = $this->getOrCreateDengeCategory($child_code, $child_name, $parent_id, $language_id);
+            $total_child++;
+        }
+
+        $this->xml_import->log("Kategori import tamamlandı. Parent: {$total_parent}, Child: {$total_child}");
+        return true;
+    }
+
+
+    /**
+     * Kategori oluşturucu
+     */
+    private function getOrCreateDengeCategory($code, $name, $parent_id, $language_id) {
+
+        $query = $this->db->query("
+            SELECT category_id FROM " 
+            . DB_PREFIX . "denge_category_map 
+            WHERE denge_code = '" . $this->db->escape($code) . "'
+        ");
+
+        if ($query->num_rows) {
+            return (int)$query->row['category_id'];
+        }
+
+        // Yeni kategori ekle
+        $this->db->query("INSERT INTO " . DB_PREFIX . "category SET 
+            parent_id   = " . (int)$parent_id . ",
+            `top`       = '" . ($parent_id ? 0 : 1) . "',
+            `column`    = 1,
+            sort_order  = 0,
+            status      = 1,
+            date_added  = NOW(),
+            date_modified = NOW()
+        ");
+
+        $category_id = (int)$this->db->getLastId();
+
+        // Description
+        $this->db->query("INSERT INTO " . DB_PREFIX . "category_description SET
+            category_id = " . (int)$category_id . ",
+            language_id = " . (int)$language_id . ",
+            `name`      = '" . $this->db->escape($name) . "',
+            meta_title  = '" . $this->db->escape($name) . "'
+        ");
+
+        // Store
+        $this->db->query("INSERT INTO " . DB_PREFIX . "category_to_store SET
+            category_id = " . (int)$category_id . ",
+            store_id    = 0
+        ");
+
+        // SEO
+        $keyword = $this->slugify($name);
+
+        if ($keyword) {
+
+            $base = $keyword;
+            $i = 1;
+
+            while (true) {
+                $seo_q = $this->db->query("SELECT seo_url_id FROM " . DB_PREFIX . "seo_url WHERE keyword = '" . $this->db->escape($keyword) . "'");
+                if (!$seo_q->num_rows) break;
+
+                $keyword = $base . '-' . $i++;
+            }
+
+            $this->db->query("INSERT INTO " . DB_PREFIX . "seo_url SET
+                store_id   = 0,
+                language_id= " . (int)$language_id . ",
+                `query`    = 'category_id=" . (int)$category_id . "',
+                keyword    = '" . $this->db->escape($keyword) . "'
+            ");
+        }
+
+        // MAP TABLOSU
+        $this->db->query("INSERT INTO " . DB_PREFIX . "denge_category_map SET
+            denge_code = '" . $this->db->escape($code) . "',
+            category_id = " . (int)$category_id . "
+        ");
+
+        $this->xml_import->log("Yeni kategori oluşturuldu: {$name} (code: {$code}, id: {$category_id}, parent: {$parent_id})");
+
+        return $category_id;
+    }
+
+
+    /**
+     * Kod → kategori_id getir
+     */
+    public function getCategoryIdByDengeCode($code) {
+
+        $query = $this->db->query("
+            SELECT category_id FROM " 
+            . DB_PREFIX . "denge_category_map 
+            WHERE denge_code = '" . $this->db->escape($code) . "'
+        ");
+
+        if ($query->num_rows) {
+            return (int)$query->row['category_id'];
+        }
+
+        return 0;
+    }
+
+
+    /**
+     * Türkçe destekli slugify
+     */
+    private function slugify($text) {
+
+        $text = trim($text);
+
+        $map = [
+            'ş'=>'s','Ş'=>'s','ı'=>'i','İ'=>'i','ç'=>'c','Ç'=>'c',
+            'ü'=>'u','Ü'=>'u','ö'=>'o','Ö'=>'o','ğ'=>'g','Ğ'=>'g'
+        ];
+
+        $text = strtr($text, $map);
+        $text = preg_replace('~[^\\pL\\d]+~u', '-', $text);
+        $text = trim($text, '-');
+        $text = iconv('UTF-8', 'ASCII//TRANSLIT', $text);
+        $text = strtolower($text);
+        $text = preg_replace('~[^-a-z0-9]+~', '', $text);
+
+        return $text ?: 'kategori';
+    }
+
 }

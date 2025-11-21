@@ -24,17 +24,9 @@ class ControllerExtensionModuleXmlImport extends Controller {
         $data['heading_title'] = $this->language->get('heading_title');
 
         // Hatalar
-        if (isset($this->error['warning'])) {
-            $data['error_warning'] = $this->error['warning'];
-        } else {
-            $data['error_warning'] = '';
-        }
-
-        if (isset($this->error['xml_url'])) {
-            $data['error_xml_url'] = $this->error['xml_url'];
-        } else {
-            $data['error_xml_url'] = '';
-        }
+        $data['error_warning'] = isset($this->error['warning']) ? $this->error['warning'] : '';
+        $data['error_xml_url'] = isset($this->error['xml_url']) ? $this->error['xml_url'] : '';
+        $data['error_category_xml_url'] = isset($this->error['category_xml_url']) ? $this->error['category_xml_url'] : '';
 
         // Breadcrumbs
         $data['breadcrumbs'] = array();
@@ -57,19 +49,28 @@ class ControllerExtensionModuleXmlImport extends Controller {
         $data['action'] = $this->url->link('extension/module/xml_import', 'user_token=' . $this->session->data['user_token'], true);
         $data['cancel'] = $this->url->link('marketplace/extension', 'user_token=' . $this->session->data['user_token'] . '&type=module', true);
 
-        // Form alanları
-        if (isset($this->request->post['module_xml_import_status'])) {
-            $data['module_xml_import_status'] = $this->request->post['module_xml_import_status'];
-        } else {
-            $data['module_xml_import_status'] = $this->config->get('module_xml_import_status');
-        }
-
+        // FORM ALANLARI — Ürün URL
         if (isset($this->request->post['module_xml_import_url'])) {
             $data['module_xml_import_url'] = $this->request->post['module_xml_import_url'];
         } else {
             $data['module_xml_import_url'] = $this->config->get('module_xml_import_url');
         }
 
+        // FORM ALANLARI — Kategori URL  (YENİ EKLENDİ)
+        if (isset($this->request->post['module_xml_import_category_url'])) {
+            $data['module_xml_import_category_url'] = $this->request->post['module_xml_import_category_url'];
+        } else {
+            $data['module_xml_import_category_url'] = $this->config->get('module_xml_import_category_url');
+        }
+
+        // Durum
+        if (isset($this->request->post['module_xml_import_status'])) {
+            $data['module_xml_import_status'] = $this->request->post['module_xml_import_status'];
+        } else {
+            $data['module_xml_import_status'] = $this->config->get('module_xml_import_status');
+        }
+
+        // Döviz alanı
         if (isset($this->request->post['module_xml_import_currency'])) {
             $data['module_xml_import_currency'] = $this->request->post['module_xml_import_currency'];
         } else {
@@ -80,7 +81,6 @@ class ControllerExtensionModuleXmlImport extends Controller {
             $data['module_xml_import_currency'] = 'USD';
         }
 
-        // Döviz listesi
         $data['currencies'] = array(
             array('code' => 'USD', 'name' => 'USD → TRY'),
             array('code' => 'EUR', 'name' => 'EUR → TRY')
@@ -93,22 +93,27 @@ class ControllerExtensionModuleXmlImport extends Controller {
             $catalog_base = HTTP_CATALOG;
         }
 
-        $data['cron_url']   = $catalog_base . 'index.php?route=extension/module/xml_import/cron';
+        $data['cron_url']    = $catalog_base . 'index.php?route=extension/module/xml_import/cron';
         $data['run_now_url'] = $catalog_base . 'index.php?route=extension/module/xml_import/run_now';
 
-        // Language strings
-        $data['text_edit']    = $this->language->get('text_edit');
-        $data['text_enabled'] = $this->language->get('text_enabled');
-        $data['text_disabled']= $this->language->get('text_disabled');
-        $data['entry_status'] = $this->language->get('entry_status');
-        $data['entry_xml_url']= $this->language->get('entry_xml_url');
-        $data['entry_currency'] = $this->language->get('entry_currency');
-        $data['entry_cron_url'] = $this->language->get('entry_cron_url');
-        $data['entry_run_now']  = $this->language->get('entry_run_now');
+        // LANG STRINGS
+        $data['text_edit']       = $this->language->get('text_edit');
+        $data['text_enabled']    = $this->language->get('text_enabled');
+        $data['text_disabled']   = $this->language->get('text_disabled');
 
-        $data['help_xml_url'] = $this->language->get('help_xml_url');
-        $data['help_currency'] = $this->language->get('help_currency');
-        $data['help_cron_url'] = $this->language->get('help_cron_url');
+        $data['entry_status']    = $this->language->get('entry_status');
+        $data['entry_xml_url']   = $this->language->get('entry_xml_url');
+        $data['entry_currency']  = $this->language->get('entry_currency');
+        $data['entry_cron_url']  = $this->language->get('entry_cron_url');
+        $data['entry_run_now']   = $this->language->get('entry_run_now');
+
+        // YENİ EKLENEN
+        $data['entry_category_xml_url'] = $this->language->get('entry_category_xml_url');
+        $data['help_category_xml_url']  = $this->language->get('help_category_xml_url');
+
+        $data['help_xml_url']   = $this->language->get('help_xml_url');
+        $data['help_currency']  = $this->language->get('help_currency');
+        $data['help_cron_url']  = $this->language->get('help_cron_url');
 
         $data['button_save']    = $this->language->get('button_save');
         $data['button_cancel']  = $this->language->get('button_cancel');
@@ -134,8 +139,14 @@ class ControllerExtensionModuleXmlImport extends Controller {
             $this->error['warning'] = $this->language->get('error_permission');
         }
 
+        // Ürün XML URL boşsa
         if (empty($this->request->post['module_xml_import_url'])) {
             $this->error['xml_url'] = $this->language->get('error_xml_url');
+        }
+
+        // Kategori XML URL boşsa (YENİ)
+        if (empty($this->request->post['module_xml_import_category_url'])) {
+            $this->error['category_xml_url'] = $this->language->get('error_category_xml_url');
         }
 
         return !$this->error;

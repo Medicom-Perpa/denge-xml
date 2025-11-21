@@ -97,3 +97,11 @@ Yeni özellik talepleri veya entegrasyon istekleri için repo üzerinden issue a
 --- 
 
 Teşekkürler — yapılandırmayı doğru yaptığınızdan emin olun.
+
+CREATE TABLE `oc_denge_category_map` (
+  `id` int(11) NOT NULL AUTO_INCREMENT,
+  `denge_code` varchar(50) NOT NULL,
+  `category_id` int(11) NOT NULL,
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `denge_code` (`denge_code`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8;
