@@ -16,7 +16,7 @@ class ModelExtensionModuleXmlImport extends Model {
 
         $filename = 'xml_' . md5($url) . '.' . $ext;
 
-        $folder = DIR_IMAGE . 'catalog/xml_import/';
+        $folder   = DIR_IMAGE . 'catalog/xml_import/';
         $savePath = $folder . $filename;
 
         if (!is_dir($folder)) {
@@ -42,22 +42,21 @@ class ModelExtensionModuleXmlImport extends Model {
         return 'catalog/xml_import/' . $filename;
     }
 
-
     /**
      * KUR ALMA
      */
     public function getRate($currency) {
-
         $currency = strtoupper(trim($currency));
 
         if ($currency == 'TL' || $currency == 'TRY' || $currency == '') {
             return 1;
         }
 
-        $url = "https://iconsepeti.medicombilgisayar.com/api/tcmb/index.php?doviz=" . urlencode($currency);
+        $url  = "https://iconsepeti.medicombilgisayar.com/api/tcmb/index.php?doviz=" . urlencode($currency);
         $json = @file_get_contents($url);
 
         if (!$json) {
+            $this->load->library('xml_import');
             $this->xml_import->log("HATA: Döviz API bağlantı hatası. URL: $url");
             return 1;
         }
@@ -65,6 +64,7 @@ class ModelExtensionModuleXmlImport extends Model {
         $data = json_decode($json, true);
 
         if (!isset($data["Satis"])) {
+            $this->load->library('xml_import');
             $this->xml_import->log("HATA: Döviz API yanıtı geçersiz. Veri: " . $json);
             return 1;
         }
@@ -76,7 +76,6 @@ class ModelExtensionModuleXmlImport extends Model {
      * ÜRÜN IMPORT
      */
     public function importProducts($xmlPath, $defaultCurrency = 'USD') {
-
         $this->load->library('xml_import');
         $this->xml_import->log("XML işleme başladı.");
 
@@ -93,14 +92,14 @@ class ModelExtensionModuleXmlImport extends Model {
         foreach ($xml->urun as $p) {
 
             // XML alanları
-            $sku      = trim((string)$p->urunKodu1);
-            $model    = trim((string)$p->ureticikodu);
-            $name     = trim((string)$p->urunAdi);
-            $price_raw= trim((string)$p->fiyat1);
-            $currency = trim((string)$p->fiyatcinsi1);
-            $stock    = (int)$p->stok;
-            $brand    = trim((string)$p->marka);
-            $barcode  = trim((string)$p->barkod);
+            $sku        = trim((string)$p->urunKodu1);
+            $model      = trim((string)$p->ureticikodu);
+            $name       = trim((string)$p->urunAdi);
+            $price_raw  = trim((string)$p->fiyat1);
+            $currency   = trim((string)$p->fiyatcinsi1);
+            $stock      = (int)$p->stok;
+            $brand      = trim((string)$p->marka);
+            $barcode    = trim((string)$p->barkod);
 
             // ✔ DOĞRU KATEGORİ KODU
             $category_code = trim((string)$p->katmannumarsi);
@@ -136,14 +135,14 @@ class ModelExtensionModuleXmlImport extends Model {
             // FİYAT HESAPLAMA
             //---------------------------
             $price_raw = str_replace(',', '.', $price_raw);
-            $price = (float)$price_raw;
+            $price     = (float)$price_raw;
 
             $currency = strtoupper(trim($currency));
 
             if ($currency == '' || $currency == 'TL' || $currency == 'TRY') {
                 $price_tl = $price;
             } else {
-                $rate = $this->getRate($currency);
+                $rate     = $this->getRate($currency);
                 $price_tl = $price * $rate;
             }
 
@@ -175,26 +174,29 @@ class ModelExtensionModuleXmlImport extends Model {
             if ($q->num_rows) {
 
                 // --------- GÜNCELLEME ---------
-                $product_id = $q->row['product_id'];
+                $product_id = (int)$q->row['product_id'];
 
                 $this->db->query("
                     UPDATE " . DB_PREFIX . "product 
-                    SET model = '" . $model_db . "',
-                        price = '" . (float)$price_tl . "',
-                        quantity = '" . (int)$stock . "',
-                        image = '" . $image_db . "',
-                        upc = '" . $barcode_db . "',
+                    SET model        = '" . $model_db . "',
+                        price        = '" . (float)$price_tl . "',
+                        quantity     = '" . (int)$stock . "',
+                        image        = '" . $image_db . "',
+                        upc          = '" . $barcode_db . "',
                         date_modified = NOW()
-                    WHERE product_id = '" . (int)$product_id . "'
+                    WHERE product_id = '" . $product_id . "'
                 ");
 
                 $this->db->query("
                     UPDATE " . DB_PREFIX . "product_description 
                     SET name = '" . $name_db . "'
-                    WHERE product_id = '" . (int)$product_id . "'
+                    WHERE product_id = '" . $product_id . "'
                 ");
 
-                $this->db->query("DELETE FROM " . DB_PREFIX . "product_image WHERE product_id = '" . (int)$product_id . "'");
+                $this->db->query("
+                    DELETE FROM " . DB_PREFIX . "product_image 
+                    WHERE product_id = '" . $product_id . "'
+                ");
 
                 if (count($downloaded_images) > 1) {
                     $sort = 0;
@@ -203,8 +205,8 @@ class ModelExtensionModuleXmlImport extends Model {
 
                         $this->db->query("
                             INSERT INTO " . DB_PREFIX . "product_image
-                            SET product_id = '" . (int)$product_id . "',
-                                image = '" . $this->db->escape($local_path) . "',
+                            SET product_id = '" . $product_id . "',
+                                image      = '" . $this->db->escape($local_path) . "',
                                 sort_order = '" . (int)$sort . "'
                         ");
                         $sort++;
@@ -219,22 +221,22 @@ class ModelExtensionModuleXmlImport extends Model {
                 // --------- EKLEME ---------
                 $this->db->query("
                     INSERT INTO " . DB_PREFIX . "product
-                    SET sku = '" . $sku_db . "',
-                        model = '" . $model_db . "',
-                        price = '" . (float)$price_tl . "',
-                        quantity = '" . (int)$stock . "',
-                        image = '" . $image_db . "',
-                        status = 1,
-                        upc = '" . $barcode_db . "',
-                        date_added = NOW()
+                    SET sku         = '" . $sku_db . "',
+                        model       = '" . $model_db . "',
+                        price       = '" . (float)$price_tl . "',
+                        quantity    = '" . (int)$stock . "',
+                        image       = '" . $image_db . "',
+                        status      = 1,
+                        upc         = '" . $barcode_db . "',
+                        date_added  = NOW()
                 ");
 
-                $product_id = $this->db->getLastId();
+                $product_id = (int)$this->db->getLastId();
 
                 $this->db->query("
                     INSERT INTO " . DB_PREFIX . "product_description
-                    SET product_id = '" . (int)$product_id . "',
-                        name = '" . $name_db . "',
+                    SET product_id  = '" . $product_id . "',
+                        name        = '" . $name_db . "',
                         language_id = 1
                 ");
 
@@ -245,8 +247,8 @@ class ModelExtensionModuleXmlImport extends Model {
 
                         $this->db->query("
                             INSERT INTO " . DB_PREFIX . "product_image
-                            SET product_id = '" . (int)$product_id . "',
-                                image = '" . $this->db->escape($local_path) . "',
+                            SET product_id = '" . $product_id . "',
+                                image      = '" . $this->db->escape($local_path) . "',
                                 sort_order = '" . (int)$sort . "'
                         ");
                         $sort++;
@@ -268,11 +270,14 @@ class ModelExtensionModuleXmlImport extends Model {
 
                 if ($category_id) {
 
-                    $this->db->query("DELETE FROM " . DB_PREFIX . "product_to_category WHERE product_id = " . (int)$product_id);
+                    $this->db->query("
+                        DELETE FROM " . DB_PREFIX . "product_to_category 
+                        WHERE product_id = " . (int)$product_id . "
+                    ");
 
                     $this->db->query("
                         INSERT INTO " . DB_PREFIX . "product_to_category
-                        SET product_id = '" . (int)$product_id . "',
+                        SET product_id  = '" . (int)$product_id . "',
                             category_id = '" . (int)$category_id . "'
                     ");
 
@@ -291,12 +296,10 @@ class ModelExtensionModuleXmlImport extends Model {
         return true;
     }
 
-
     /**
      * KATEGORİ IMPORT
      */
     public function importCategories($xmlPath) {
-
         $this->load->library('xml_import');
         $this->xml_import->log("Kategori XML işleme başladı: " . $xmlPath);
 
@@ -343,6 +346,84 @@ class ModelExtensionModuleXmlImport extends Model {
         return true;
     }
 
+    /**
+     * Kategori için path / store / layout bağlarını garantiye alan yardımcı
+     */
+    private function ensureCategoryRelations($category_id, $parent_id) {
+        $store_id = 1; // İstersen burayı $this->config->get('config_store_id') yapabiliriz.
+        
+        // STORE BAĞI
+        $q_store = $this->db->query("
+            SELECT * FROM " . DB_PREFIX . "category_to_store 
+            WHERE category_id = " . (int)$category_id . " 
+              AND store_id    = " . (int)$store_id . "
+        ");
+        if (!$q_store->num_rows) {
+            $this->db->query("
+                INSERT INTO " . DB_PREFIX . "category_to_store 
+                SET category_id = " . (int)$category_id . ",
+                    store_id    = " . (int)$store_id . "
+            ");
+        }
+
+        // LAYOUT BAĞI
+        $q_layout = $this->db->query("
+            SELECT * FROM " . DB_PREFIX . "category_to_layout 
+            WHERE category_id = " . (int)$category_id . " 
+              AND store_id    = " . (int)$store_id . "
+        ");
+        if (!$q_layout->num_rows) {
+            $this->db->query("
+                INSERT INTO " . DB_PREFIX . "category_to_layout 
+                SET category_id = " . (int)$category_id . ",
+                    store_id    = " . (int)$store_id . ",
+                    layout_id   = 0
+            ");
+        }
+
+        // PATH BAĞLARI
+        $q_path = $this->db->query("
+            SELECT COUNT(*) AS total 
+            FROM " . DB_PREFIX . "category_path 
+            WHERE category_id = " . (int)$category_id . "
+        ");
+
+        if (!$q_path->row['total']) {
+            $this->db->query("
+                DELETE FROM " . DB_PREFIX . "category_path 
+                WHERE category_id = " . (int)$category_id . "
+            ");
+
+            $level = 0;
+
+            if ((int)$parent_id > 0) {
+                $parent_paths = $this->db->query("
+                    SELECT path_id, level 
+                    FROM " . DB_PREFIX . "category_path 
+                    WHERE category_id = " . (int)$parent_id . " 
+                    ORDER BY level ASC
+                ");
+
+                foreach ($parent_paths->rows as $result) {
+                    $this->db->query("
+                        INSERT INTO " . DB_PREFIX . "category_path 
+                        SET category_id = " . (int)$category_id . ",
+                            path_id    = " . (int)$result['path_id'] . ",
+                            level      = " . (int)$level . "
+                    ");
+                    $level++;
+                }
+            }
+
+            // Kendi path kaydı
+            $this->db->query("
+                INSERT INTO " . DB_PREFIX . "category_path 
+                SET category_id = " . (int)$category_id . ",
+                    path_id    = " . (int)$category_id . ",
+                    level      = " . (int)$level . "
+            ");
+        }
+    }
 
     /**
      * Kategori oluşturucu
@@ -350,41 +431,44 @@ class ModelExtensionModuleXmlImport extends Model {
     private function getOrCreateDengeCategory($code, $name, $parent_id, $language_id) {
 
         $query = $this->db->query("
-            SELECT category_id FROM " 
-            . DB_PREFIX . "denge_category_map 
+            SELECT category_id FROM " . DB_PREFIX . "denge_category_map 
             WHERE denge_code = '" . $this->db->escape($code) . "'
         ");
 
         if ($query->num_rows) {
-            return (int)$query->row['category_id'];
+            $category_id = (int)$query->row['category_id'];
+
+            // Mevcut kategori için de path/store/layout bağlarını kontrol et
+            $this->ensureCategoryRelations($category_id, $parent_id);
+
+            return $category_id;
         }
 
         // Yeni kategori ekle
-        $this->db->query("INSERT INTO " . DB_PREFIX . "category SET 
-            parent_id   = " . (int)$parent_id . ",
-            `top`       = '" . ($parent_id ? 0 : 1) . "',
-            `column`    = 1,
-            sort_order  = 0,
-            status      = 1,
-            date_added  = NOW(),
-            date_modified = NOW()
+        $this->db->query("
+            INSERT INTO " . DB_PREFIX . "category SET 
+                parent_id    = " . (int)$parent_id . ",
+                `top`        = '" . ($parent_id ? 0 : 1) . "',
+                `column`     = 1,
+                sort_order   = 0,
+                status       = 1,
+                date_added   = NOW(),
+                date_modified = NOW()
         ");
 
         $category_id = (int)$this->db->getLastId();
 
         // Description
-        $this->db->query("INSERT INTO " . DB_PREFIX . "category_description SET
-            category_id = " . (int)$category_id . ",
-            language_id = " . (int)$language_id . ",
-            `name`      = '" . $this->db->escape($name) . "',
-            meta_title  = '" . $this->db->escape($name) . "'
+        $this->db->query("
+            INSERT INTO " . DB_PREFIX . "category_description SET
+                category_id = " . (int)$category_id . ",
+                language_id = " . (int)$language_id . ",
+                `name`      = '" . $this->db->escape($name) . "',
+                meta_title  = '" . $this->db->escape($name) . "'
         ");
 
-        // Store
-        $this->db->query("INSERT INTO " . DB_PREFIX . "category_to_store SET
-            category_id = " . (int)$category_id . ",
-            store_id    = 0
-        ");
+        // Store + layout + path
+        $this->ensureCategoryRelations($category_id, $parent_id);
 
         // SEO
         $keyword = $this->slugify($name);
@@ -392,34 +476,39 @@ class ModelExtensionModuleXmlImport extends Model {
         if ($keyword) {
 
             $base = $keyword;
-            $i = 1;
+            $i    = 1;
 
             while (true) {
-                $seo_q = $this->db->query("SELECT seo_url_id FROM " . DB_PREFIX . "seo_url WHERE keyword = '" . $this->db->escape($keyword) . "'");
+                $seo_q = $this->db->query("
+                    SELECT seo_url_id FROM " . DB_PREFIX . "seo_url 
+                    WHERE keyword = '" . $this->db->escape($keyword) . "'
+                ");
                 if (!$seo_q->num_rows) break;
 
                 $keyword = $base . '-' . $i++;
             }
 
-            $this->db->query("INSERT INTO " . DB_PREFIX . "seo_url SET
-                store_id   = 0,
-                language_id= " . (int)$language_id . ",
-                `query`    = 'category_id=" . (int)$category_id . "',
-                keyword    = '" . $this->db->escape($keyword) . "'
+            $this->db->query("
+                INSERT INTO " . DB_PREFIX . "seo_url SET
+                    store_id    = 0,
+                    language_id = " . (int)$language_id . ",
+                    `query`     = 'category_id=" . (int)$category_id . "',
+                    keyword     = '" . $this->db->escape($keyword) . "'
             ");
         }
 
         // MAP TABLOSU
-        $this->db->query("INSERT INTO " . DB_PREFIX . "denge_category_map SET
-            denge_code = '" . $this->db->escape($code) . "',
-            category_id = " . (int)$category_id . "
+        $this->db->query("
+            INSERT INTO " . DB_PREFIX . "denge_category_map SET
+                denge_code  = '" . $this->db->escape($code) . "',
+                category_id = " . (int)$category_id . "
         ");
 
+        $this->load->library('xml_import');
         $this->xml_import->log("Yeni kategori oluşturuldu: {$name} (code: {$code}, id: {$category_id}, parent: {$parent_id})");
 
         return $category_id;
     }
-
 
     /**
      * Kod → kategori_id getir
@@ -427,8 +516,7 @@ class ModelExtensionModuleXmlImport extends Model {
     public function getCategoryIdByDengeCode($code) {
 
         $query = $this->db->query("
-            SELECT category_id FROM " 
-            . DB_PREFIX . "denge_category_map 
+            SELECT category_id FROM " . DB_PREFIX . "denge_category_map 
             WHERE denge_code = '" . $this->db->escape($code) . "'
         ");
 
@@ -438,7 +526,6 @@ class ModelExtensionModuleXmlImport extends Model {
 
         return 0;
     }
-
 
     /**
      * Türkçe destekli slugify
